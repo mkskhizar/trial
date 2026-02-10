@@ -232,7 +232,15 @@
         };
 
         // Clear
-        document.getElementById('clear-btn').onclick = () => {
+        document.getElementById('done-btn').onclick = () => {
+    document.getElementById('success').style.display = 'block';
+    confetti({ particleCount: 200, spread: 130 });
+
+    setTimeout(() => {
+        window.location.href = "love.html";
+    }, 3000);
+};
+
             ctxDraw.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
             document.getElementById('success').style.display = 'none';
         };
@@ -253,4 +261,5 @@
         });
     </script>
 </body>
+
 </html>
