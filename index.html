@@ -69,7 +69,6 @@
             0% { opacity: 0; transform: translateY(15px); }
             100% { opacity: 1; transform: translateY(0); }
         }
-
         #container {
             position: relative;
             width: 94%;
@@ -82,12 +81,12 @@
             box-shadow: 0 18px 70px rgba(255,105,180,0.45);
             overflow: hidden;
         }
-        #graph-canvas, #draw-canvas {
+        canvas {
             width: 100%;
             height: 100%;
+            position: absolute;
+            top: 0; left: 0;
         }
-        #draw-canvas { position: absolute; top: 0; left: 0; cursor: crosshair; }
-
         button.main-btn {
             margin: 35px 25px;
             padding: 20px 70px;
@@ -108,7 +107,6 @@
             color: #d63384;
         }
         #clear-btn:hover { background: #ffc1cc; transform: scale(1.1); }
-
         #success {
             display: none;
             font-size: 2.9em;
@@ -122,23 +120,27 @@
             line-height: 1.6;
             box-shadow: 0 12px 50px rgba(0,0,0,0.2);
         }
+        #next-btn {
+            display: none;
+            background: #ff1493;
+            color: white;
+            margin-top: 40px;
+        }
+        #next-btn:hover { background: #c2185b; transform: scale(1.1); }
     </style>
 </head>
 <body>
-
     <h1>ARE YOU READY TO WIN YOUR VALENTINE GIFT?</h1>
     <p style="font-size:1.6em; opacity:0.9; margin-bottom: 60px;">
         Not so easily babe... solve the questions and make ur daddy proud 😋<br>
         Let's start~
     </p>
-
     <p id="prompt">
         draw the diagram of increase in my love (demand) and your cuteness (supply).
     </p>
-
     <button id="hint-btn">HINT (just for my little girl )</button>
     <div id="hint-text">its relationship is also like us - positive ♡</div>
-
+    
     <div id="container">
         <canvas id="graph-canvas"></canvas>
         <canvas id="draw-canvas"></canvas>
@@ -150,6 +152,8 @@
     <div id="success">
         Yes you made it right obviously your teacher would be so proud of you ♡<br><br>
         Get ready for another test... 😏💕
+        <br><br>
+        <button id="next-btn" class="main-btn">Next Test → 💕</button>
     </div>
 
     <script>
@@ -158,102 +162,133 @@
         const ctxGraph = graphCanvas.getContext('2d');
         const ctxDraw = drawCanvas.getContext('2d');
 
+        // Store drawing paths (array of arrays of points)
+        let paths = [];
+        let currentPath = [];
+
         function resize() {
-            graphCanvas.width = drawCanvas.width = graphCanvas.offsetWidth;
-            graphCanvas.height = drawCanvas.height = graphCanvas.offsetHeight;
-            drawGraph();
+            const w = graphCanvas.offsetWidth;
+            const h = graphCanvas.offsetHeight;
+
+            // Important: set attributes (this clears canvas)
+            graphCanvas.width = drawCanvas.width = w;
+            graphCanvas.height = drawCanvas.height = h;
+
+            redrawEverything();
         }
-        window.addEventListener('resize', resize);
-        resize();
 
-        function drawGraph() {
+        function redrawEverything() {
+            // Redraw axes (graph layer)
             ctxGraph.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
-            const w = graphCanvas.width;
-            const h = graphCanvas.height;
             const margin = 140;
-
-            // Pure blank graph - only axes
             ctxGraph.strokeStyle = '#444';
             ctxGraph.lineWidth = 7;
             ctxGraph.beginPath();
             ctxGraph.moveTo(margin, margin);
-            ctxGraph.lineTo(margin, h - margin);
-            ctxGraph.lineTo(w - margin, h - margin);
+            ctxGraph.lineTo(margin, graphCanvas.height - margin);
+            ctxGraph.lineTo(graphCanvas.width - margin, graphCanvas.height - margin);
             ctxGraph.stroke();
+
+            // Optional cute labels (you can remove or change)
+            ctxGraph.font = 'bold 28px Comic Sans MS';
+            ctxGraph.fillStyle = '#ff1493';
+            ctxGraph.fillText("Cuteness (Supply)", graphCanvas.width - margin - 180, graphCanvas.height - margin + 60);
+            ctxGraph.save();
+            ctxGraph.translate(margin - 80, margin + 120);
+            ctxGraph.rotate(-Math.PI / 2);
+            ctxGraph.fillText("My Love (Demand)", 0, 0);
+            ctxGraph.restore();
+
+            // Redraw all user paths (draw layer)
+            ctxDraw.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+            ctxDraw.strokeStyle = '#ff1493';
+            ctxDraw.lineWidth = 20;
+            ctxDraw.lineCap = 'round';
+
+            paths.forEach(path => {
+                if (path.length < 2) return;
+                ctxDraw.beginPath();
+                ctxDraw.moveTo(path[0].x, path[0].y);
+                for (let i = 1; i < path.length; i++) {
+                    ctxDraw.lineTo(path[i].x, path[i].y);
+                }
+                ctxDraw.stroke();
+            });
         }
 
-        // Drawing setup
-        ctxDraw.strokeStyle = '#ff1493';
-        ctxDraw.lineWidth = 20;
-        ctxDraw.lineCap = 'round';
+        window.addEventListener('resize', resize);
+        resize(); // initial
 
+        // Drawing logic
         let drawing = false;
 
         function getPos(e) {
             const rect = drawCanvas.getBoundingClientRect();
             return {
-                x: (e.clientX || e.touches[0]?.clientX) - rect.left,
-                y: (e.clientY || e.touches[0]?.clientY) - rect.top
+                x: (e.clientX || (e.touches && e.touches[0]?.clientX)) - rect.left,
+                y: (e.clientY || (e.touches && e.touches[0]?.clientY)) - rect.top
             };
         }
 
-        function start(e) { 
-            drawing = true; 
-            const pos = getPos(e); 
-            ctxDraw.beginPath(); 
-            ctxDraw.moveTo(pos.x, pos.y); 
+        function start(e) {
+            drawing = true;
+            currentPath = [getPos(e)];
             e.preventDefault?.();
         }
 
-        function drawMove(e) {
+        function move(e) {
             if (!drawing) return;
             const pos = getPos(e);
+            currentPath.push(pos);
+            // Live preview
             ctxDraw.lineTo(pos.x, pos.y);
             ctxDraw.stroke();
             e.preventDefault?.();
         }
 
-        function stop() { drawing = false; }
+        function stop() {
+            if (drawing && currentPath.length > 1) {
+                paths.push(currentPath);
+            }
+            drawing = false;
+            currentPath = [];
+        }
 
         drawCanvas.addEventListener('pointerdown', start);
-        drawCanvas.addEventListener('pointermove', drawMove);
+        drawCanvas.addEventListener('pointermove', move);
         drawCanvas.addEventListener('pointerup', stop);
         drawCanvas.addEventListener('pointerout', stop);
 
         drawCanvas.addEventListener('touchstart', start);
-        drawCanvas.addEventListener('touchmove', drawMove);
+        drawCanvas.addEventListener('touchmove', move);
         drawCanvas.addEventListener('touchend', stop);
 
-        // Done button
+        // Buttons
         document.getElementById('done-btn').onclick = () => {
             document.getElementById('success').style.display = 'block';
-            confetti({ particleCount: 200, spread: 130, origin: { y: 0.6 } });
+            confetti({ particleCount: 280, spread: 140, origin: { y: 0.6 } });
             window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+            // Optional: auto-redirect after 6 seconds
+            // setTimeout(() => { window.location.href = 'journey.html'; }, 6000);
         };
 
-        // Clear
-        document.getElementById('done-btn').onclick = () => {
-    document.getElementById('success').style.display = 'block';
-    confetti({ particleCount: 200, spread: 130 });
+        document.getElementById('next-btn').onclick = () => {
+            window.location.href = 'journey.html';
+        };
 
-    setTimeout(() => {
-        window.location.href = "love.html";
-    }, 3000);
-};
-
+        document.getElementById('clear-btn').onclick = () => {
+            paths = [];
+            currentPath = [];
             ctxDraw.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
             document.getElementById('success').style.display = 'none';
         };
 
-        // Hint button toggle
+        // Hint toggle
         const hintBtn = document.getElementById('hint-btn');
         const hintText = document.getElementById('hint-text');
-
         hintBtn.onclick = () => {
             hintText.style.display = hintText.style.display === 'block' ? 'none' : 'block';
         };
-
-        // Optional: close hint when clicking outside
         document.addEventListener('click', (e) => {
             if (!hintBtn.contains(e.target) && !hintText.contains(e.target)) {
                 hintText.style.display = 'none';
@@ -261,5 +296,4 @@
         });
     </script>
 </body>
-
 </html>
